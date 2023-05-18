@@ -1,0 +1,102 @@
+---
+title: 'EDS 223: assignment 1'
+author: 'Javier Patrón'
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Assignment: Using Sobol with an ODE
+
+### 2023-05-17
+
+### Introduction:
+
+Carbon sequestration in forests is the process by which trees and vegetation absorb carbon dioxide (CO2) from the atmosphere and store it in the form of carbon (C) within their biomass (AGB) and soils (BGB). Forests play a vital role in mitigating climate change as they act as natural carbon sinks, helping to reduce the concentration of CO2, a greenhouse gas, in the atmosphere.
+
+In this post, we will perform a sensitivity analysis to calculate the total carbon sequestration in forests, considering their complex and dynamic nature. Forests are influenced by factors such as tree species, age, soil quality, and climate conditions, which affect carbon sequestration rates and capacity. By conducting sensitivity analysis, we will examine how changes in these factors impact carbon sequestration estimates. Keeping the Ordinary Differential Equations (ODE) simple in this post will demonstrate the effectiveness of this statistical analysis. It will enable us to identify the most influential factors, quantify their effects, and gain precise insights into forest carbon sequestration.
+
+Carrying Capacity (K) and Carbon Sequestration: In the context of carbon sequestration, the carrying capacity (K) represents the maximum level of carbon that a forest ecosystem can store sustainably over the long term. It is determined by factors such as available land area, tree growth rates, nutrient availability, and ecosystem resilience. The carrying capacity sets an upper limit on the amount of carbon that can be sequestered by a forest, beyond which further increases may be unsustainable or lead to ecosystem degradation. Understanding the carrying capacity is crucial for forest managers and policymakers as it helps in setting realistic targets for carbon sequestration, guiding reforestation efforts, and ensuring the long-term effectiveness of forest-based climate change mitigation strategies.
+
+### The Model (ODE)
+
+Consider the following models of forest growth
+
+1.  Forests where C is below a threshold canopy closure.
+
+${\frac{C}{dt}} = r \cdot C$
+
+where:
+
+-   ${C}$ = forest size measured in units of carbon (C))
+-   ${dt}$ = time increment (change in time.)
+-   ${r}$ = early exponential growth rate of the forest
+
+2.  For forests where C is at or above the threshold canopy closure
+
+${\frac{dC}{dt}} = g \cdot (1 - {\frac{C}{K}})$
+
+where:
+
+-   ${\frac{dC}{dt}}$ = rate of change of ${C}$ (Forest size) with respect to time
+-   ${g}$ = linear growth rate of the forest
+-   ${K}$ = carrying capacity in units of carbon of the forest
+
+You could think of the canopy closure threshold as the size of the forest at which growth rates change from exponential to linear You can think of , as early exponential growth rate and as the linear growth rate once canopy closure has been reached
+
+## **Assignment Tasks:**
+
+1.  Implement this model in R (as a differential equation). This functions are stored as R scripts in a folder within the work
+
+```{r}
+# Function for Equation 1: dt/C = r * C
+equation_1 <- function(C, dt, r) {
+  return(dt/C - r*C)
+}
+
+# Function for Equation 2: dC/dt = g * (1 - K/C)
+equation_2 <- function(C, dt, g, K) {
+  return(g * (1 - K/C) - dt)
+}
+```
+
+2.  Run the model for 300 years (using the ODE solver) starting with an initial forest size of 10 kg/C, and using the following parameters:
+
+-   canopy closure threshold of 50 kgC
+
+-   K = 250 kg C (carrying capacity)
+
+-   r = 0.01 (exponential growth rate before before canopy closure)
+
+-   g = 2 kg/year (linear growth rate after canopy closure)
+
+3.  Graph the results. Here you are graphing the trajectory with the parameters as given (e.g no uncertainty)\
+    4.  Run a sobol global (vary all parameters at the same time) sensitivity analysis that explores how the\
+        estimated maximum forest size (e.g maximum of 300 years, varies with these parameters\
+        pre canopy closure growth rate ( )\
+        post-canopy closure growth rate ( )\
+        canopy closure threshold and carrying capacity( )\
+        Assume that parameters are all normally distributed with means as given above and standard deviation of 10% of\
+        mean value\
+    5.  Graph the results of the sensitivity analysis as a box plot of maximum forest size and record the two Sobol\
+        indices (S and T).\
+    6.  In 2-3 sentences, discuss what the results of your simulation might mean. (For example think about how\
+        what parameters climate change might influence).\
+        Submit R markdown with model implementation, graphs and sensitivity analysis and R file with your model\
+        You can work in groups or individually\
+        dC/dt = r ∗ C\
+        dC/dt = g ∗ (1 − C/K)\
+        K\
+        C\
+        r g\
+        K\
+        r\
+        g\
+        C\
+        r\
+        g\
+        K
+
+5/18/23, 8:07 AM Assignment: Using Sobol with an ODE\
+<file:///Users/ctague/Desktop/courses/ESM232_Course/assignments/assignment_growth_ODE.html> 2/2\
+Extra Credit\
+Also compute Sobol indices for a second metric: forest size after a 100 years
