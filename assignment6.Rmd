@@ -1,5 +1,5 @@
 ---
-title: 'EDS 223: assignment 1'
+title: 'EDS 230: Assignment 6'
 author: 'Javier Patrón'
 date: "`r Sys.Date()`"
 output: html_document
@@ -56,15 +56,16 @@ library(sensitivity)
 1.  Implement this model in R (as a differential equation). This functions are stored as R scripts in a folder within the working directory.
 
 ```{r}
-# Function for Equation 1: dt/C = r * C
+# Function for Equation 1 when the canopy is not in the closure state: dt/C = r * C
 equation_1 <- function(C, dt, r) {
   return(dt/C - r*C)
 }
 
-# Function for Equation 2: dC/dt = g * (1 - K/C)
+# Function for Equation 2 after the closure state: dC/dt = g * (1 - K/C)
 equation_2 <- function(C, dt, g, K) {
   return(g * (1 - K/C) - dt)
 }
+
 ```
 
 2.  Run the model for 300 years (using the ODE solver) starting with an initial forest size of 10 kg/C, and using the following parameters:
@@ -75,110 +76,271 @@ equation_2 <- function(C, dt, g, K) {
 -   g = 2 kg/year (linear growth rate after canopy closure)
 
 ```{r}
-
 # Set the canopy threshold
 canopy_threshold <-  50 
+
 # Set the carbon sequestration starting point
 C <- 10
+K = 250 
+r = 0.01 
+g <- 2
+threshold <- 50
 
-# Set the list of possible parameters
-times = 50
-K = rnorm(mean = 250, sd = 50, n = times) # Set a variance of SD 1
-r = rnorm(mean = 0.01, sd = 1, n = times)
-g <- 2  # Linear growth rate after canopy closure (kg/year)
-
-#K2 <- runif(n = times, min = 200, max = 400) Maybe we can Run this 
-
-possibility1_df = cbind.data.frame(r=r, K=K)
-possibility2_df = cbind.data.frame(r=r, K=K)
-
-# fix any negative values and they are not meaningful
-X1 = possibility1_df %>% map_df(pmax, 0.0)
-X2 = possibility2_df %>% map_df(pmax, 0.0)
-
-# create our sobol object and get sets of parameters for running the model
-sensitivity_C = sobolSalt(model = NULL, X1, X2, nboot = 300)
-
-
-# our parameter sets are
-head(sensitivity_C$X)
-
-# lets add names 
-colnames(sensitivity_C$X) = c("r","K")
 ```
 
-Now lets apply the ODE with the created values
 
+Now lets use our equation with this fixed values
 ```{r}
-source("/Users/javipatron/Documents/MEDS/Courses/eds230/assignments/assignment6/eds230-carbon-forest-model/functions/equation1.R")
+source("/Users/javipatron/Documents/MEDS/Courses/eds230/assignments/assignment6/eds230-carbon-forest-model/functions/equation_forestgrowth.R")
 
-class(equation1)
+class(equation_forestgrowth)
 
-years = seq(from=1, to=200)
-parms = list(r = as.data.frame(sensitivity_C$X)$r[1], 
-             K = as.data.frame(sensitivity_C$X)$K[1])
+years = seq(from=1, to=300)
 
-result = ode(y = C,
+parms = list(r = r, 
+             K = K,
+             g = g,
+             threshold = threshold)
+
+result_fixed = ode(y = C,
              times = years,
-             func = equation1,
+             func = equation_forestgrowth,
              parms = parms)
 
-result
+result_fixed
+
 ```
 
 3.  Graph the results. Here you are graphing the trajectory with the parameters as given (e.g no uncertainty)
 
 ```{r}
 
-colnames(result) = c("year","C")
+colnames(result_fixed) = c("year","C")
 
 # turn it into a data frame
-result = as.data.frame(result)
-ggplot(result, aes(year, C)) + 
-  geom_point()
+result_fixed = as.data.frame(result_fixed)
 
-# extra our metrics of interest  from this
-# maximum population it gets to
-maxpop = max(result$C)
-maxpop
-
-# years required to get to a threshold population (150)
-# which will tell when this occurs - we will take the first one
-thresh = 150
-idx = which(result$C > thresh)[1]
-
-# if it never gets there
-idx = ifelse(is.na(idx), length(result$C), idx)
-# turn this index into a year (might be the same if time step in 1 but just in case it isn't)
-threshyear = result$year[idx]
-threshyear
-
-# or how about threshold of 50% of carrying capacity
-thresh = 0.5*sens_P$X[1,"K"]
-idx = which(result$P > thresh)[1]
-
-# if it never gets there
-idx = ifelse(is.na(idx), length(result$P), idx)
-# turn this index into a year (might be the same if time step in 1 but just in case it isn't)
-threshyear = result$time[idx]
-threshyear
-
+ggplot(result_fixed, aes(year, C)) +
+  geom_point(color = ifelse(result_fixed$C < 50, "peru", "darkgreen"), 
+             size = 6, 
+             alpha = 0.1) +
+  labs(title = "Tracking the Forest Size Over Time",
+       subtitle = "Fixed Values (No sensitivity Analysis)",
+       y = "Forest Size (C)",
+       x = "Time (300 years)") +
+  theme_minimal()
 
 ```
+
 
 3.  Run a sobol global (vary all parameters at the same time) sensitivity analysis that explores how the estimated maximum forest size (e.g maximum of 300 years, varies with these parameters:
 
     -   pre canopy closure growth rate ( )
-
     -   post-canopy closure growth rate ( )
-
     -   canopy closure threshold and carrying capacity( )
-
     -   Assume that parameters are all normally distributed with means as given above and standard deviation of 10% of mean value.
+    
+    
+```{r}
+
+# Set the list of possible parameters
+number_parameters <- 100
+sd_perc <- 0.1 # Set the SD 
+
+K = rnorm(mean = 250, sd = K*sd_perc, n = number_parameters) # Set a variance of SD 1
+r = rnorm(mean = 0.01, sd = r*sd_perc, n = number_parameters)
+g <-  rnorm(mean = 2, sd = g*sd_perc, n = number_parameters)  # Linear growth rate after canopy closure (kg/year)
+threshold <- rnorm(mean = 50, sd = threshold*sd_perc, n = number_parameters)
+
+#K2 <- runif(n = times, min = 200, max = 400) Maybe we can Run this 
+
+possibility1_df = cbind.data.frame(r=r, K=K, g=g, threshold = threshold)
+possibility2_df = cbind.data.frame(r=r, K=K, g=g, threshold = threshold)
+
+# fix any negative values and they are not meaningful
+X1 = possibility1_df %>% map_df(pmax, 0.0)
+X2 = possibility2_df %>% map_df(pmax, 0.0)
+
+# create our sobol object and get sets of parameters for running the model
+sensitivity_C = sobolSalt(model = NULL, X1, X2, nboot = 350)
+
+
+# our parameter sets are
+head(sensitivity_C$X)
+
+# lets add names 
+colnames(sensitivity_C$X) = c("r","K", "g", "threshold")
+
+
+source("/Users/javipatron/Documents/MEDS/Courses/eds230/assignments/assignment6/eds230-carbon-forest-model/functions/equation_forestgrowth.R")
+
+class(equation_forestgrowth)
+
+years = seq(from=1, to=300)
+parms = list(r = as.data.frame(sensitivity_C$X)$r[1], 
+             K = as.data.frame(sensitivity_C$X)$K[1],
+             g = as.data.frame(sensitivity_C$X)$g[1],
+             threshold = as.data.frame(sensitivity_C$X)$threshold[1])
+
+result = ode(y = C,
+             times = years,
+             func = equation_forestgrowth,
+             parms = parms)
+
+result
+
+colnames(result) = c("year","C")
+
+
+# turn it into a data frame
+result = as.data.frame(result)
+
+ggplot(result, aes(year, C)) +
+  geom_point(color = ifelse(result$C < 50, "peru", "skyblue4"), 
+             size = 6, 
+             alpha = 0.1) +
+  labs(title = "Tracking the Forest Size Over Time",
+       subtitle = "SD Values (Sensitivity Analysis)",
+       y = "Forest Size (C)",
+       x = "Time (300 years)") +
+  theme_minimal()
+
+```
+
+
+Lets create two additional functions that will help us
+
+* a function that computes the metrics we want
+* a function that runs our ode solver and computes the metrics (I call it a wrapper function as it is really just a workflow/wrapper to call ode solver and then compute metrics)
+
+```{r}
+# turn computing our metrics into a function
+
+compute_metrics = function(result, thresh) {
+  maxpop = max(result$C)
+  
+idx = which(result$C > thresh)[1]
+idx = ifelse(is.na(idx), length(result$C), idx)
+threshyear = result$year[idx]
+
+return(list(maxpop = maxpop, threshyear = threshyear))
+}
+
+# try it on our first parameter set, and look at when it gets to 100
+test <- compute_metrics(result, 80)
+```
+
+
+Now we need to apply the ode and this function for all of our parameters
+```{r}
+# Define a wrapper function 
+# Lets make the threshold 90% of carrying capacity. 
+#This function will run the ODE for each parameter
+
+p_wrapper = function(r, K, g, threshold, C, years, func) {
+  
+  parms = list(r = r, K = K, g = g, threshold = threshold)
+  
+  result = ode(y = C,
+               times = years,
+               func = func,
+               parms = parms)
+    
+    colnames(result) = c("Year", "C")
+    
+  # get metrics
+  metrics = compute_metrics(as.data.frame(result), thresh = 60)
+  return(metrics)
+  
+}
+
+
+```
+
+
+```{r}
+test <- p_wrapper(r = 0.01, 
+                  K = 250 , 
+                  g = 2, 
+                  threshold = 50, 
+                  C = 10, 
+                  years = seq(1,10), 
+                  equation_forestgrowth)
+
+```
+
+
+
+```{r}
+# now use pmap as we did before
+allresults = as.data.frame(sensitivity_C$X) %>% 
+  pmap(p_wrapper, C = C, years = years, func = equation_forestgrowth)
+
+# extract out results from pmap into a data frame
+allres = allresults %>% map_dfr(`[`,c("maxpop","threshyear"))
+
+
+# create boxplots
+tmp = allres %>% pivot_longer(cols = everything(), 
+                              names_to = "metric", 
+                              values_to = "value")
+```
+
+```{r}
+
+# Create the plot
+ggplot(tmp, aes(metric, value, fill = metric)) +
+  geom_boxplot(fill = "darkgreen",
+               color = "black", 
+               alpha = 0.6, 
+               outlier.color = "black", 
+               outlier.shape = 16) +
+  labs(title = "Distribution of Metrics",
+       y = "Value",
+       x = "Metric") +
+  theme_minimal()
+
+
+
+```
+
+
+
+# Compute the sobol indicies for each metric
+
+```{r sen3}
+# sobol can only handle one output at a time  - so we will need to do them separately
+
+sensitivity_C_maxpop = sensitivity::tell(sensitivity_C, allres$maxpop)
+
+# first-order indices (main effect without co-variance)
+sensitivity_C_maxpop$S
+
+# total sensitivity index -note that this partitions the output variance 
+sensitivity_C_maxpop$T
+
+
+# create another one for max year
+sensitivity_C_threshyear = sensitivity::tell(sensitivity_C, allres$threshyear)
+# first-order indices (main effect without co-variance)
+sensitivity_C_threshyear$S
+
+# total sensitivity index -note that this partitions the output variance - so values sum to 1
+sensitivity_C_threshyear$T
+
+
+
+```
+
 
 4.  Graph the results of the sensitivity analysis as a box plot of maximum forest size and record the two Sobol indices (S and T).
 
 5.  In 2-3 sentences, discuss what the results of your simulation might mean. (For example think about how what parameters climate change might influence). Submit R markdown with model implementation, graphs and sensitivity analysis and R file with your model. You can work in groups or individually
+
+
+
+
+
 
 5/18/23, 8:07 AM Assignment: Using Sobol with an ODE
 
